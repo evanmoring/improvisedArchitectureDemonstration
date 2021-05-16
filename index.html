@@ -1,0 +1,429 @@
+<style>
+
+    div{
+        margin-bottom: 20px;
+    }
+    
+    p{
+        max-width: 700px;
+        line-height: 1.4;
+    }
+    
+    #grid div{
+        margin-bottom:0px;
+    }
+
+    #contentWrap{
+        max-width: 700px;
+        margin: auto;
+        padding: 10px;
+    }
+
+    #previewImg{
+        z-index: 3;
+        position: absolute;
+        max-height:200px;
+        max-width: 200px;
+        background:red;
+        object-fit: contain;
+    }
+    .previewImg{
+        z-index: 3;
+        
+        max-height:200px;
+        max-width: 200px;
+        background:red;
+        object-fit: contain;
+    }
+    #preview{
+        position:absolute;
+        z-index: 3;
+    }
+    #map{
+        display: block;
+        position: relative;
+        height:100%;
+    }
+    
+    .preview{
+        z-index: 3;
+        position: absolute;
+        
+        display: grid;
+        grid-template-columns: auto auto;
+        background:white;
+        object-fit: contain;
+    }
+    #grid{
+     
+        font-size: 14px;
+        display: grid;
+
+        margin-bottom: 20px;
+        grid-template-columns: auto auto;
+   
+    }
+    
+    button{
+        margin-bottom:20px;
+        padding:5px;
+        
+    }
+    
+    #imageWrap {
+        cursor: pointer;
+    }
+    
+    #imageWrap img {
+        max-width:100%;
+        height: 80%;
+
+    }
+    #mapgrid {
+
+        display: grid;
+        grid-template-columns: 100%;
+        grid-template-rows: 35% 65%;
+        height: 100%;
+        grid-row-gap: 1em;
+    }
+    
+    #mapgrid>div{
+        padding:.5em;
+    }
+    
+    @media screen and (orientation : landscape){
+
+        
+        #mapgrid {
+
+        display: grid;
+        grid-template-columns: 50% 50%;
+        grid-template-rows: 100%;
+            height: 60%;
+
+    }
+        #imageWrap img {
+        max-width:100%;
+        height: auto;
+
+    }
+    }
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<body>
+    <div id="contentWrap">
+        <div id="description">
+        <p>In early 2021 Frood Designs embarked on a project to document some of the "parklets" in San Francisco. "Parklets" are small public parks built and maintained by local businesses. They usually take up a parking space in front of the business and are semi-permanent.</p>
+            <p>They have existed in San Francisco for years, but during the pandemic many more were created to accommodate outdoor diners during the ban on indoor dining.</p>
+            <p>We were interested in the parklets both as historical markers of the pandemic and as examples of improvised architecture. The parklets are often built quickly and simply by friends or family of the business.</p>
+            <p>If you have your own pictures of parklets, even if they aren't in San Francisco, you may email them to us at info@frooddesigns.com and we will add them to the map. Also, if you or someone you know has built a parklet or owns a business with a parklet we would like to interview you.</p>
+        </div>
+        
+        </div>
+    <div id="mapgrid">
+            <div id="map"> <div id="preview"><img id="previewImage" class ="previewImg"></div>
+            </div>
+            <div>
+            
+            <div id="imageWrap"></div>
+                <button onclick="previousParklet()">Previous</button>
+            <button onclick="nextParklet()">Next</button>
+                </div>
+            </div>
+    
+
+</body>
+<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css"
+>
+<script>
+var currentParklet = null;
+
+//this identifies if the user is on mobile or desktop. Preview turns off on mobile.
+function isTouchDevice() {
+  return (('ontouchstart' in window) ||
+     (navigator.maxTouchPoints > 0) ||
+     (navigator.msMaxTouchPoints > 0));
+}
+
+const touchBool = isTouchDevice();
+    
+function nextParklet(){
+    if(currentParklet==null){
+        parkletList[0].select();
+        return 0;
+    }
+    else{
+        let nextNumber = (currentParklet.id+1)%parkletList.length;
+        parkletList[nextNumber].select();
+    }    
+}
+    
+function previousParklet(){
+    let nextNumber;
+        if(currentParklet==null){
+            parkletList[0].select();
+            return 0;
+        }
+        if (currentParklet.id == 0){
+            nextNumber = parkletList.length-1;
+        }
+        else{
+            nextNumber = currentParklet.id -1;
+        }
+            parkletList[nextNumber].select();
+        }
+
+class parklet{
+        constructor(list,id){
+            this.id = id;
+            this.latitude = list[1];
+            this.longitude = list[2];
+            this.coorDict  = `${this.latitude.toString()} ${this.longitude.toString()}`;
+            this.imagePath=list[0];
+            this.addFeatureToMap();
+            /*if(coorDict[this.coorDict]){
+                coorDict[this.coorDict].push(this)
+            }
+            else{
+                coorDict[this.coorDict]= [this];
+            } */  
+        }
+        //sets up map element
+        addFeatureToMap(){
+            this.feature = new ol.Feature({
+                 geometry: new ol.geom.Point(ol.proj.fromLonLat([this.longitude, this.latitude])),
+             })
+            this.feature.setStyle(iconStyle);
+            this.feature.setId(this.id)
+            layer.get('source').addFeature(this.feature)
+        }
+        select(){
+            currentParklet = this;
+            parkletList.forEach(iParklet =>{
+                    iParklet.deselect();
+                })
+            $("#imageWrap").empty();
+            this.addImage();
+            //change color of map element. Changing the layer controls the z-index of element
+            this.feature.setStyle(selectedStyle);
+            if(layer.get('source').getFeatures().indexOf(this.feature) >= 0){
+                console.log('this feature was in layer')
+                layer.get('source').removeFeature(this.feature)
+                topLayer.get('source').addFeature(this.feature)
+            }
+            
+        }
+        deselect(){
+            if(topLayer.get('source').getFeatures().indexOf(this.feature) >= 0){
+                console.log('this feature was in top layer')
+                topLayer.get('source').removeFeature(this.feature)
+                layer.get('source').addFeature(this.feature)
+            }
+            
+            
+            this.feature.setStyle(iconStyle);
+        }
+        
+        //add image when map element is clicked
+        addImage(){
+            let newImageDiv = $(document.createElement('img'));
+            newImageDiv.attr('onload',"this.scrollIntoView({behavior: `smooth`, block: `start`})")
+            newImageDiv.attr('onclick',`window.open("compressed/${this.imagePath}","_blank")`);
+            //newImageDiv.attr('target','_blank');
+                newImageDiv.attr('src',`compressed/${this.imagePath}`);
+                $("#imageWrap").append(newImageDiv);
+                
+                $("#imageWrap")[0].scrollIntoView({block:"start"});
+                //$("#imageWrap")[0].scrollIntoView();
+        }
+        
+        
+        //pops up preview when map element is moused over      
+        popup(event){
+            this.previewImg = $(document.createElement('img'));
+                this.previewImg.addClass('previewImg');
+                $("#previewImage").attr('src',`preview/${this.imagePath}`);
+
+                //this.preview.append(`<div style="margin:5px;"><p>ID: ${this.id}</p><p>Time: ${this.date}</p><p>Longitude: ${this.longitude}</p><p>Latitude: ${this.latitude}</p></div>`)
+                $("#preview").css('top',`${event.pixel[1] +10}px`)
+                //this.preview.addClass('preview');
+                //this.preview.append(this.previewImg)
+                //$('body').append(this.preview);   
+            if(window.innerWidth/2>event.pixel[0]){
+                    $("#preview").css('left',`${event.pixel[0]+10}px`)
+                }
+            else{
+                console.log($("#preview").width()+200)
+                $("#preview").css('left',`${event.pixel[0]-($("#preview").width())}px`)
+            }
+        }
+    }
+
+</script>
+<script>
+
+var jsonList;
+// unselected map element styling
+var iconStyle = new ol.style.Style({
+  image: new ol.style.Icon({
+    src: 'circle.svg',
+      //imgSize:[20,20],
+      scale:.025,
+      color:'red',
+      opacity:.5,
+      graphicZIndex:1,
+      cursor:'pointer',
+  }),
+}); 
+    
+// selected map element styling
+var selectedStyle = new ol.style.Style({
+  image: new ol.style.Icon({
+    src: 'circle.svg',
+      //imgSize:[20,20],
+      scale:.025,
+      color:'green',
+      graphicZIndex:0,
+  }),
+}); 
+    
+//This sets the attributes for the "tile" layer. This is the basic images displayed on the map
+var stamenLayer = new ol.layer.Tile({
+        source: new ol.source.Stamen({
+          layer: 'terrain'
+        })
+      });
+    
+var zoomLevel = 8;
+if(window.innerWidth > 200){
+    zoomLevel = 10
+}
+if(window.innerWidth > 700){
+    zoomLevel = 12
+}
+console.log(zoomLevel)
+var map = new ol.Map({
+        target: 'map',
+        layers: [stamenLayer],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-122.45, 37.75]),
+          zoom:10+ document.getElementById('map').offsetWidth/500,
+        })
+      });
+    console.log(window.innerWidth)
+    console.log(window.innerWidth/50)
+   
+var markerList = [];
+
+function loadJSON(callback) {
+    var xobj = new XMLHttpRequest();
+    xobj.overrideMimeType("application/json");
+
+    xobj.onreadystatechange = function () {
+            if (xobj.readyState == 4 && xobj.status == "200") {
+
+                callback(xobj.responseText);
+            } 
+        };
+    xobj.open('GET', 'GPSData.json', true);
+    xobj.send(null);  
+};
+layer = new ol.layer.Vector({      
+    source: new ol.source.Vector({
+     features: markerList,
+    }),
+});
+
+topLayer = new ol.layer.Vector({      
+    source: new ol.source.Vector({
+     features: markerList,
+    }),
+});    
+
+topLayer.setZIndex(2);
+    
+map.addLayer(layer);
+map.addLayer(topLayer);
+parkletList = [];
+loadJSON(function(response) {                 
+    jsonList = JSON.parse(response)
+    for(let i =0; i<jsonList.length; i++){
+        parkletList.push(new parklet(jsonList[i],i))
+    /*let cFeature = new ol.Feature({
+    geometry: new ol.geom.Point(ol.proj.fromLonLat([jsonList[i][2], jsonList[i][1]])),
+    })
+    cFeature.setId(i)
+    cFeature.setStyle(iconStyle)
+    markerList.push(cFeature)*/
+    }
+});
+       
+var layer;    
+var container = document.getElementById('popup');
+var content = document.getElementById('popup-content');
+var closer = document.getElementById('popup-closer');
+
+var overlay = new ol.Overlay({
+    element: container,
+    autoPan: true,
+    autoPanAnimation: {
+        duration: 250
+    }
+});
+map.addOverlay(overlay);
+
+
+
+ map.on("click", function(e) {
+    map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
+        //console.log(feature.id_)
+        //console.log($("#imageWrap"))
+        //$("#imageWrap").empty();
+        //$("#imageWrap").append(`<img src="${jsonList[feature.id_][0]}">`)
+        parkletList[feature.id_].select();
+    })
+})
+var cat;
+var popup = new ol.Overlay({
+  element: document.getElementById('popup'),
+});
+
+//change cursor to pointer on mouseover    
+map.on("pointermove", function (evt) {
+    var hit = this.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+        return true;
+    }); 
+    if (hit) {
+        this.getTargetElement().style.cursor = 'pointer';
+    } else {
+        this.getTargetElement().style.cursor = '';
+    }
+});
+
+    
+    map.on('pointermove', function (e) {
+        if(touchBool == false){
+            /*if (selected !== null) {
+            selected.setStyle(undefined);
+            selected = null;*/
+            //return true;
+            let featuresAtMouse = [];
+            map.forEachFeatureAtPixel(e.pixel, function (feature) {
+                
+                featuresAtMouse.push(feature)
+            });
+            if(featuresAtMouse.length>0){
+                parkletList[featuresAtMouse[0].id_].popup(e);
+            }
+            else{
+                $("#previewImage").attr('src',``);
+            }
+            
+        }
+
+    })
+
+</script>
+
